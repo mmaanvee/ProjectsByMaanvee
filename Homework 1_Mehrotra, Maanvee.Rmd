@@ -1,0 +1,689 @@
+---
+title: "Homework 1"
+author: "Mehrotra, Maanvee"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+library("dplyr")
+library("ggplot2")
+library("psych")
+```
+## Question 1
+```{r}
+# read the file 
+Data1 <- read.csv ("Dow.csv")
+```
+
+```{r}
+## Part a 
+##### Converting Closing Values (char) into numeric values to get rid of errors of NA
+Cleaned_CV <- gsub("[^0-9.-]", "", Data1$Closing.Values)
+numeric_CV <- as.numeric(Cleaned_CV)
+```
+
+```{r}
+##### Compute the average Dow return over the period given on the dataset
+###### calculating geometric mean
+timeseries <- ts(numeric_CV, frequency = 12, start = 1)
+Growth_Factor <- timeseries/stats::lag(timeseries, - 1)
+
+Geometric_Mean_Rate <- round(100*(geometric.mean(Growth_Factor)-1), digits = 2)
+print(Geometric_Mean_Rate)
+```
+
+```{r}
+sprintf("The Geometric Mean for the Dow return is 0.6.")
+```
+
+```{r}
+mean_prop <- mean(Growth_Factor)
+print(mean_prop)
+```
+
+```{r}
+histogram <- hist(Growth_Factor, main = "Histogram of Closing Values", xlab = "Values", col="red")
+```
+
+```{r}
+sprintf("The histogram for the returns is normally distributed with most values centered around the mean.")
+```
+
+```{r}
+#### Part c - Empirical Rule verification
+# calculate std deviation 
+std_dow <- sd(Growth_Factor)
+print(std_dow)
+```
+
+```{r}
+# print result
+sprintf("The std dev of Closing Values is %.3f.", std_dow)
+```
+
+```{r}
+# the size of the sample to use the empirical rule 
+TotalSampleSize <- length(Growth_Factor)
+TotalSampleSize
+```
+
+```{r}
+##### One std dev bounds
+One_SD_Range_Lower <- mean_prop - 1*std_dow
+One_SD_Range_Upper <- mean_prop + 1*std_dow
+
+## Proportion of observations within 1 SD (should be around 68%) 
+Num_Within_One_SD <- length(which(Growth_Factor >= One_SD_Range_Lower & Growth_Factor <= One_SD_Range_Upper))
+Percent_Within_One_SD <- 100*(Num_Within_One_SD/TotalSampleSize)
+```
+
+```{r}
+## Two std dev bounds
+Two_SD_Range_Lower <- mean_prop - 2*std_dow
+Two_SD_Range_Upper <- mean_prop + 2*std_dow
+
+## Proportion of observations within 2 SD (should be around 95%) 
+Num_Within_Two_SD <- length(which(Growth_Factor >= Two_SD_Range_Lower & Growth_Factor <= Two_SD_Range_Upper))
+Percent_Within_Two_SD <- 100*(Num_Within_Two_SD/TotalSampleSize)
+```
+
+```{r}
+## Three std dev bounds
+Three_SD_Range_Lower <- mean_prop - 3*std_dow
+Three_SD_Range_Upper <- mean_prop + 3*std_dow
+
+## Proportion of observations within 2 SD (should be around 99.7%) 
+Num_Within_Three_SD <- length(which(Growth_Factor >= Three_SD_Range_Lower & Growth_Factor <= Three_SD_Range_Upper))
+Percent_Within_Three_SD <- 100*(Num_Within_Three_SD/TotalSampleSize)
+```
+
+```{r}
+#print results for the empirical rule code
+sprintf("%.1f%% of the returns are within 1SD from the mean.", Percent_Within_One_SD)
+sprintf("%.1f%% of the returns are within 2SD from the mean.", Percent_Within_Two_SD)
+sprintf("%.1f%% of the shipments are within 3SD from the mean.", Percent_Within_Three_SD)
+```
+
+```{r}
+# Print Interpretation
+sprintf ("Interpretation: The empirical rule code shows that the returns are normally distributed as the data is 72 percent, 95 percent and 98 percent away from the mean respectively which is within the bounds of the empirical rule.")
+```
+
+```{r}
+#### Part d - Boxplot & Five-number summary
+Returns_boxplot <- boxplot(Growth_Factor, horizontal = TRUE, col="red")
+```
+
+```{r}
+# Print interpretation
+sprintf("The returns boxplot shows normal distribution similar to the previous findings.")
+```
+
+```{r}
+#part d
+# Finding the IQR using the Five number summary 
+fivenum((Growth_Factor+1)*100)
+IQR <- 1.0324026-0.9839168
+Q1 <- 0.9839168
+Q2 <-1.0089782
+Q3 <- 1.0324026
+```
+
+```{r}
+## print the results
+sprintf("First Quartile: 25 percent of returns are less than %.2f and 75 percent returns are more than %.2f.", Q1, Q1 )  
+sprintf("Second Quartile: 50 percent of returns are less than %.2f and 50 percent returns are more than %.2f", Q2, Q2)
+sprintf("Third Quartile: 75 percent of returns are less than %.2f and 25 percent returns are more than %.2f.", Q3, Q3)
+sprintf("The variation in middle 50%% of the returns is %.3f percent.", IQR)
+```
+
+```{r}
+## part e
+# Identify the outliers and extremeoutliers using IQR
+
+outliervector <- with(Data1, Data1$Outlier <- ifelse(numeric_CV >= Q3 + 1.5*IQR, "Yes", "No"))
+
+Data1["Outlier"] <- outliervector
+
+
+### Identify extreme outliers. Greater than 3*IQR
+extremeoutlier <- with (Data1, Data1$Outlier <- ifelse(numeric_CV >= Q3+ 3*IQR, "Yes", "No"))
+
+Data1["ExtremeOutlier"] <- extremeoutlier
+
+## Create a data frame and display
+library(dplyr)
+View_Data_FINAL <- Data1 %>%
+  arrange(desc(Outlier))
+
+# Displaying the results 
+
+View_Data_FINAL
+```
+## Question 2
+```{r}
+#read the file
+Data2 <-read.csv("MutualFunds.csv")
+head(Data2, n=5)
+```
+
+```{r}
+#### Part a
+##### Construct a boxplot for Mutual Fund 1. Does the boxplot suggest that outliers exist?
+
+boxplot(Data2$MF1, horizontal = TRUE, col = "pink", main = "Box plot for Mutual Fund 1")$out
+```
+
+```{r}
+#print result
+sprintf("Boxplot for MF1 reveal that there are two outliers in the dataset, which are 131.75, 90.29.")
+```
+
+```{r}
+#### Part b
+##### Use z-scores to determine if there are any outliers for Mutual Fund 1
+
+mean_MF1 <-mean(Data2$MF1)
+sprintf("The mean of MF1 is %.2f.", mean_MF1)
+```
+
+```{r}
+#print std deviation for MF1
+sd_MF1 <- sd(Data2$MF1)
+sprintf("The standard deviation of MF1 is %.2f.", sd_MF1)
+```
+
+```{r}
+##### Calculating Z-score
+z_score1 <-(Data2$MF1 - mean_MF1)/sd_MF1
+z_score1
+```
+
+```{r}
+##### Plotting a scatterpot with z-scores to understand the spread of the z-scores for MF1
+
+library(ggplot2)
+plot(z_score1,Data2$MF1,ylab= "Mutual Fund 1" , xlab= "z-scores", main="Scatter Plot for z-scores of Mutual Fund 1", pch=20, col="green")
+```
+
+```{r}
+sprintf("Interpretation: After plotting of z-scores from Mutual Fund 1, the outlier that is shown is  3.11924013, it is clear that there is one outlier on the z-score as compared to boxplot. The boxplot has two outliers-  131.75 and 90.29 but only outlier is consistent with z-scores plotted on the scatter plot, the outlier is still existent, even after standardization of the Mutual Fund 1. ")
+```
+
+```{r}
+#### Part c
+##### Construct a boxplot for Mutual Fund 2. Does the boxplot suggest that outliers exist?
+
+boxplot(Data2$MF2, horizontal = TRUE, col = "lightblue" , main = "Box plot for Mutual Fund 2")$out
+```
+
+```{r}
+#print results
+sprintf("Boxplot for Mutul Fund 2 reveal an outlier that is -54.")
+```
+
+```{r}
+#### Part d
+##### Use z-scores to determine if there are any outliers for Mutual Fund 2
+
+mean_MF2 <-mean(Data2$MF2)
+sprintf("The mean of MF2 is %.2f.", mean_MF2)
+```
+
+```{r}
+#print std deviation for MF2
+sd_MF2 <- sd(Data2$MF2)
+sprintf("The standard deviation of MF2 is %.2f.", sd_MF2)
+```
+
+```{r}
+##### Calculating Z-score
+z_score2 <-(Data2$MF2 - mean_MF2)/sd_MF2
+z_score2
+```
+
+```{r}
+##### Plotting a scatterpot with z-scores to understand the spread of the z-scores for MF2
+
+plot(z_score2,Data2$MF2,main="Scatter Plot for Mutual Fund 2", ylab= "Mutual Fund 1" , xlab= "z-scores", pch=20, col="blue") 
+```
+
+```{r}
+sprintf("After plotting of z-scores from MF2, I see there is one point that is close to the edge but is not considered as an outlier because it is -2.79013998 on the z-score. Hence, the outliers are not consistent with the findings of boxplot.")
+```
+## Question 3
+```{r}
+#### Part a
+##### Create a scatterplot of the selling price on the crime rate
+Data3 <- readxl::read_excel("MetroHomes.xlsx")
+head(Data3, n=4)
+```
+
+```{r}
+### Create a scatterplot of the selling price on the crime rate
+Scatterplot_Data3 <- plot(Data3$`Crime Rate`, Data3$`Selling Price`, main="Selling Rate vs Crime Rate", 
+     xlab="Crime Rate", ylab="Selling Price", pch=19, col="red")
+```
+
+```{r}
+sprintf("Interpretation: Visually, there seem to be a negative correlation between Crime Rates per 100,000 residents and Selling Price in the metropolitan city. There is one value that stands out at the extreme right hand side of the plot." )
+```
+
+```{r}
+## Assessing the correlation between the two variables
+correlation <- cor(Data3$`Crime Rate`, Data3$`Selling Price`)
+correlation
+```
+
+```{r}
+sprintf("Interpretation: The Pearson correlation coefficient betweenCrime Rates per 100,000 residents and Selling Price is %.3f, which is classified as weak.", correlation)
+```
+
+```{r}
+### Exclude the distinct outlier and redraw the scatterplot focused on the rest of the data.
+View_Data <- Data3 %>%
+  arrange((Data3$`Crime Rate`))
+
+# removing outliers
+data_without_outliers <- View_Data[-nrow(View_Data), ]
+```
+```{r}
+# plot the new data with outliers
+plot(data_without_outliers$`Crime Rate`, data_without_outliers$`Selling Price`, main="New Selling Rate vs Crime Rate", 
+     xlab="Crime Rate", ylab="Selling Price", pch=19, col="red")
+
+```
+
+```{r}
+#print the result 
+sprintf ("Interpretation: After taking out the outlier, the scatterplot has become is more scattered due to the reduction is x axis to 8 instead of 35, in contrast to compactly packed points in the first scatterplot but it has not changed the relationship between the two variables. Visually, the relationship is still not strong and the data points mostly occur in quadrant 3, 4, and 2, which maybe a good indicator that the relationship is moderately negative. ")
+```
+## Question 4
+```{r}
+#### Part a
+Data4 <- read.csv ("CellphoneMarket.csv")
+head(Data4, n=5)
+```
+
+```{r}
+##### how the variables are distributed?
+###### lets look at numerical values from columns E-R
+#create histogram
+hist(Data4$Account.Length, main= "Histogram of Account Length", xlab= "account length")
+```
+```{r}
+#create histogram
+hist(Data4$Day.Minutes, main= "Histogram of Day Minutes", xlab= "day mins")
+```
+```{r}
+#create histogram
+hist(Data4$Day.Charge, main= "Histogram of Day Charge", xlab= "day charge")
+```
+
+```{r}
+#create histogram
+hist(Data4$Day.Calls, main= "Histogram of Day Calls", xlab= "day calls")
+```
+```{r}
+#create histogram
+hist(Data4$Night.Calls, main= "Histogram of Night Calls", xlab= "night calls")
+```
+```{r}
+#create histogram
+hist(Data4$Night.Minutes, main= "Histogram of Night Minutes", xlab= "night mins")
+```
+```{r}
+hist(Data4$Night.Charge, main= "Histogram of Night Charge", xlab= "night charge")
+```
+```{r}
+#create histogram
+hist(Data4$Evening.Calls, main= "Histogram of Evening Calls", xlab= "evening calls")
+```
+```{r}
+#create histogram
+hist(Data4$Evening.Minutes, main= "Histogram of Evening Minutes", xlab= "evening mins")
+```
+```{r}
+#create histogram
+hist(Data4$Evening.Charge, main= "Histogram of Evening Charge", xlab= "evening charge")
+```
+```{r}
+#create histogram
+hist(Data4$International.Minutes, main= "Histogram of International Minutes", xlab= "international mins")
+```
+```{r}
+#create histogram
+hist(Data4$International.Calls, main= "Histogram of International Calls", xlab= "international calls")
+```
+```{r}
+#create histogram
+hist(Data4$International.Charge, main= "Histogram of International Charge", xlab= "international charge")
+```
+```{r}
+sprintf("Interpretation: All the numerical data points are normally distributed, meaning that most customers are centered towards the mean execpt there is a little right skewness in international calls which means most customers don't really use the international call addition.")
+```
+
+```{r}
+#part b - ## how the variables in columns B–R are related to each other
+# correlation matrix between all numerical variables
+
+numerical_data <- Data4 %>%
+  select_if(is.numeric)
+
+corr_matrix <- cor(numerical_data)
+ 
+print(corr_matrix)
+```
+```{r}
+sprintf( "Interpretation: The correlation between most the variables is not very high, meaning there is not strong relation between most of the variables.")
+```
+```{r}
+# part c 
+# how the variables in columns B–R are related to the Churn variable in column S
+
+ggplot(Data4, aes(x =Day.Charge, y = Churn. , fill = Churn.)) +
+  geom_boxplot() +
+  labs(x = "Churn", y = "Day Charge", title = "Relationship between Churn and Day Charge")
+```
+```{r}
+ ggplot(Data4, aes(x =Customer.Service.Calls, y = Churn. , fill = Churn.)) +
+  geom_boxplot() +
+  labs(x = "Churn", y = "Customer Service Calls", title = "Relationship between Churn and Customer Service Calls")
+```
+```{r}
+sprintf("Interpretation: Please look the boxplots above for reference . After plotting boxplots for the most numerical data points with individual customer who churned and not, the findings from the visualizations show that customers who have higher number of customer service calls have churned most significantly , in contrast to the customers with less customer service calls. Hence, the problems that arise during customer service calls should be further investigated to find out why are the problems for customers not being resolved. This could help reduce churn rate of the cellular phone business. Another problem that is showing higher relation with churn rate is Day Charge, if the company wishes to keep customers, they should try to come with bundles through marketing analytics to reduce the costs to continue gaining profits. Hence, that might also reduce churn rate.")
+```
+# Question 5
+```{r}
+##Part a
+## Find the expected net present value of expanding semiconductor business project
+NPV1_vector <-c(40,15,-20)
+prob1_vector <- c(0.50,0.25,0.25)
+
+Expected_ValueNPV1 <- round(sum(NPV1_vector*prob1_vector), digits = 3)
+```
+
+```{r}
+sprintf("The expected net present value of expanding semiconductor business project is %.2f millions.", Expected_ValueNPV1 )
+```
+
+```{r}
+## Part b
+## Determine variance and standard deviation of the net present value
+var1 <- (NPV1_vector - Expected_ValueNPV1)^2
+Variance1 <- round(sum(var1 * prob1_vector), digits = 3)
+
+Std_Dev1 <- round(sqrt(Variance1), digits = 3)
+```
+
+```{r}
+sprintf("The variance in net present value of expanding semiconductor business project is %.1f millions.", Variance1)
+sprintf("The std deviation in net present value of expanding semiconductor business project is %.1f millions.", Std_Dev1)
+```
+
+```{r}
+## part c
+## Find the expected net present value of entering home computer market
+NPV2_vector <-c(140,15,-35)
+prob2_vector <- c(0.20,0.50,0.30)
+
+Expected_ValueNPV2 <- round(sum(NPV2_vector*prob2_vector), digits = 3)
+```
+
+```{r}
+sprintf("The expected net present value of entering home computer market is. %.1f millions", Expected_ValueNPV2 )
+```
+```{r}
+## part d
+## Determine variance and standard deviation of the net present value 
+var2 <- (NPV2_vector - Expected_ValueNPV2)^2
+Variance2 <- round(sum(var2 * prob2_vector), digits = 3)
+
+Std_Dev2 <- round(sqrt(Variance2), digits = 3)
+```
+
+```{r}
+sprintf("The variance in net present value of entering home comupter market is %.1f millions.", Variance2)
+sprintf("The std deviation in net present value of entering home comupter market is %.1f millions.", Std_Dev2)
+```
+
+```{r}
+## part e
+# Which project has the higher expected net present value
+sprintf("The expected net present value of entering home computer market is higher at the value of 25 millions.")
+```
+```{r}
+# part f
+# Which project carries the least risk? Explain.
+sprintf (" The least risky is entering the semiconductor business as the variance is lower at the amount of 3775.0 millions.")
+```
+```{r}
+## part g
+# Calculate the relative variation for each project choice.
+relative_variation1 <- (Std_Dev1 / Expected_ValueNPV1) * 100
+
+relative_variation2 <- (Std_Dev2 / Expected_ValueNPV2) * 100
+```
+
+```{r}
+sprintf("The relative variation of expanding expanding to semiconductor business is %.1f millions.", relative_variation1)
+sprintf("The relative variation of entering home computer market is %.1f millions.", relative_variation2)
+```
+
+```{r}
+## Is your response consistent with the part f) above
+sprintf("The relative variation of expanding to semiconductor business is 131.1 millions which is less risk, since lower relative variation has less risk. Hence, the answer is consistent with part f.")
+```
+## Question 6
+```{r}
+# Part a 
+# Create a probability model for the number of visits needed to fix the machine or exhaust your budget of $2,000
+p <- 0.27  # Probability of success (fixing the machine)
+budget_limit <- 2000
+
+#it will take 5 attempts to exhaust 2,000 but we will use 4 since 5 is 1 - prob_vector (1-4) 
+# the proabaility was a calculated by a tree map of bionomial 
+num_trails <- c(1,2,3,4)
+prob_vector <- c(0.27,0.197,0.110,0.1050)
+
+df_prob_distr <- data.frame(num_trails, round(prob_vector, 4))
+names(df_prob_distr) <- c("No. of Trails", "Probability")
+df_prob_distr # 
+```
+
+```{r}
+# part b
+## Find the expected number of service technicians that will be called. 
+Expected_Tech <- round(sum(num_trails*prob_vector), digits = 3)
+Expected_Tech
+```
+```{r}
+# part c
+repair_cost <- 500  # Cost per repair technician visit
+new_machine_cost <- 7500  # Cost of a new machine
+
+expected_spent_if_fixed <- Expected_Tech * repair_cost  # If the machine is fixed
+expected_spent_if_not_fixed <- new_machine_cost  # If the machine is not fixed
+expected_total_spent <- p * expected_spent_if_fixed + (1 - p) * expected_spent_if_not_fixed
+
+print(expected_total_spent) 
+```
+```{r}
+sprintf (" The amount spent on the machine to fix would end to be close to 5665.89 dollars.")
+```
+
+## Question 7
+```{r}
+# part a
+# What is the probability that exactly 10 of the attendees will purchase a club membership?
+prob_1 <- dbinom(10, size = 20, prob = 0.40)
+```
+
+```{r}
+sprintf("The probability of exactly probability that exactly 10 of the attendees will purchase a club membership %.2f.", prob_1)
+```
+
+```{r}
+# part b
+# What is the probability that no more than 10 of the attendees will purchase a club membership?
+prob_2 <- pbinom(10,size=20, prob=0.40)
+```
+
+```{r}
+sprintf("The probability that no more than 10 of the attendees will purchase a club membership %.2f.", prob_2)
+```
+
+```{r}
+# part c
+# What is the probability that at least 15 of the attendees will purchase a club membership?
+prob_3 <- pbinom(14,size = 20, prob = 0.40, lower.tail = FALSE)
+```
+
+```{r}
+sprintf("The probability probability that at least 15 of the attendees will purchase a club membership %.4f.", prob_3)
+```
+## Question 8
+```{r}
+# part a
+# find the probability for four or less
+sample <- 50
+defective_chips_original <- 4
+
+defective_fractions <- c(0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18)
+
+prob_4defect <- round(dbinom(defective_chips_original , sample, defective_fractions), digits = 3)
+prob_4defect
+
+#create a barplot with defective_chips of four or less
+barplot(prob_4defect, names.arg = defective_fractions, 
+        xlab="Fraction of Defects 4", ylab="Defective Fractions", main= "Original Defects of 4 or less" , col= "blue")
+```
+
+```{r}
+#part b where the chips change to 5 or less using same defective fractions.
+defective_chips_new <- 5
+
+prob5_defect <- round(dbinom(defective_chips_new, sample, defective_fractions), digits = 3)
+prob5_defect
+
+barplot(prob5_defect, names.arg = defective_fractions, 
+        xlab= "Defective Fractions of 5" , ylab = "Fraction of Defects 5", main = "New Defects of 5 or less", col= "orange")
+```
+
+```{r}
+sprintf("The revised barplot with five defects or less has a higher frequency in fractions as compared to the four defects or less,if the manufacturing company plans to use five as the new acceptance number, it may rise the bad reviews in quality control. Hence, remaining at  lower than the four or less would be a smarter business decision. If the value of defects increases to 5 and above, the barplot will left skewed.")
+```
+## Question 9
+```{r}
+#part a
+#determine the profit (or loss) associated with producing at different possible demand levels
+# demand distribution
+fixed_cost <- 1000
+plain_cheese_cost <- 4.50
+veggie_and_cheese_cost <- 5.00
+selling_price <- 9.00
+
+#given probabilities for both pizzas 
+cheese_demand <- seq(200,900, by=100)
+cheese_production <- seq(200,900, by=100)
+veggie_demand <- seq(300,900, by =100)
+veggie_production <- seq(300,900, by =100)
+
+profitcheese <- function(cheese_production, cheese_demand) {
+  ifelse (cheese_demand > cheese_production, cheese_production*9, cheese_demand*9) - cheese_production*4.5 -500
+}
+
+pizzacheese <- outer(cheese_demand,cheese_production, profitcheese)
+
+
+
+
+profitveggie <- function(veggie_production, veggie_demand) {
+  ifelse (veggie_demand > veggie_production, veggie_production*9, veggie_demand*9) - veggie_production*5 -500
+}
+
+pizzaveggie <- outer(veggie_demand,veggie_production, profitveggie)
+print(pizzacheese)
+print(pizzaveggie)
+```
+```{r}
+# part b
+# Compute the expected profit associated with each possible production level 
+prob_cheese <- c(0.10,0.15,0.15,0.20,0.20,0.10,0.05,0.05)
+prob_veggie_demand <- c(0.10,0.20,0.25,0.15,0.05)
+
+EV_cheese <- (pizzacheese*prob_cheese )
+EV_cheese
+finalcheese <- rowSums(EV_cheese)
+
+EV_veggie <- (pizzaveggie*prob_veggie_demand )
+EV_veggie
+finalveggie <- rowSums(EV_veggie)
+print(finalveggie)
+print(finalcheese)
+```
+
+
+```{r}
+# part c 
+sprintf ("Interpretation: If Ken wishes to have the highest profit from both types of pizzas, he needs to produce and have a demand for 600 cheese pizzas and 500 veggie pizza, as the expected profit for the both pizzas at that demand level is 2880.")
+```
+## Question 10
+```{r}
+# part a 
+# Which choice has a higher expected value in one year?
+Country_A <- 6000
+prob_A <- 0.12
+
+# Expected Value for Country A
+Expected_ValueA <- (Country_A*prob_A)+Country_A
+
+# Since country B has a exchange rate of 16 at 0.24 & 32 at 0.24
+Country_B <- 6000*16
+
+# Expected Value for Country B
+Expected_Value_CountryB<- Country_B+(0.24*6000)
+Expected_exchange <-(16*0.6)+(32*0.4)
+
+# Calculate the mean of prob1_b and prob2_B with their probability of 0.6 & 0.4 respectively
+Expected_ValueB <-Expected_Value_CountryB/Expected_exchange
+```
+
+```{r}
+sprintf("The expected value for the investment in Country A would be %.f dollars.", Expected_ValueA)
+sprintf("The expected value for the investment in Country B would be %.f dollars.", Expected_ValueB)
+```
+```{r}
+sprintf("Interpretation: The expected value of investment in Country A is better than Country B, as the expected value for Country A is 6,720 dollars, this is due to the exchange rate loss and their probabilities to potential lose money if the exchange rate increases or decreases.")
+```
+
+```{r}
+# part b
+# Do the same with 96,000 pesos in Country B
+investment_A <- c(96000/16)
+returnA <- (0.12*investment_A)
+
+# Expected Value for Country A
+Expected_Value_CA <- (returnA*Expected_exchange)+(investment_A*Expected_exchange)
+
+# Expected Value for County B
+investment_B <- c(96000)
+returnB <- c(0.24)
+
+# Expected Value for Country B
+Expected_ValueCB<- (investment_B*returnB)+investment_B 
+```
+
+```{r}
+sprintf("The expected value for the investment in Country A would be %.f pesos.", Expected_Value_CA)
+sprintf("The expected value for the investment in Country B would be %.f pesos.", Expected_ValueCB)
+```
+```{r}
+sprintf("Interpretation: The expected value of investment in Country A is better than Country B, as the expected value for Country A is 150,058 pesos.")
+```
+
+```{r}
+# part c 
+sprintf(" Interpretation: The difference in the strategies is mostly due to the higher expected values that derived from interest rates and exchange rates, the both cases gave different countries as the favorable investments because the current exchange in one lost the value and the conversion rate lost most the money invested. Thus, it is necessary to look the risk while investing in different currencies as the risk can be higher with lower returns. ")
+```
